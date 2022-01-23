@@ -28,11 +28,8 @@ public class StateMachineConfig extends StateMachineConfigurerAdapter<PaymentSta
 
 	public void configure(StateMachineStateConfigurer<PaymentState, PaymentEvent> states)
 			throws Exception {
-		states.withStates()
-				.initial(PaymentState.NEW)
-				.states(EnumSet.allOf(PaymentState.class))
-				.end(PaymentState.AUTH)
-				.end(PaymentState.PRE_AUTH_ERROR)
+		states.withStates().initial(PaymentState.NEW).states(EnumSet.allOf(PaymentState.class))
+				.end(PaymentState.AUTH).end(PaymentState.PRE_AUTH_ERROR)
 				.end(PaymentState.AUTH_ERROR);
 	}
 
@@ -46,7 +43,16 @@ public class StateMachineConfig extends StateMachineConfigurerAdapter<PaymentSta
 				.event(PaymentEvent.PRE_AUTH_APPROVED)
 				.and() 
 				.withExternal().source(PaymentState.NEW).target(PaymentState.PRE_AUTH_ERROR)
-				.event(PaymentEvent.PRE_AUTH_DECLINED);
+				.event(PaymentEvent.PRE_AUTH_DECLINED)
+				.and()
+				.withExternal().source(PaymentState.PRE_AUTH).target(PaymentState.PRE_AUTH)
+				.event(PaymentEvent.AUTHORIZE).action(authAction())
+				.and()
+				.withExternal().source(PaymentState.PRE_AUTH).target(PaymentState.AUTH)
+				.event(PaymentEvent.AUTH_APPROVED)
+				.and()
+				.withExternal().source(PaymentState.PRE_AUTH).target(PaymentState.AUTH_ERROR)
+				.event(PaymentEvent.AUTH_DECLINED);
 	}
 
 	@Override
@@ -57,27 +63,55 @@ public class StateMachineConfig extends StateMachineConfigurerAdapter<PaymentSta
 			@Override
 			public void stateChanged(State<PaymentState, PaymentEvent> from,
 					State<PaymentState, PaymentEvent> to) {
-				log.info(String.format("state changed: from: %s to %s ", from , to));
+				log.info(String.format("state changed: from: %s to %s ", from, to));
 			}
-			
-		}; 
-		
-		config.withConfiguration()
-			.listener(adapter);
+
+		};
+
+		config.withConfiguration().listener(adapter);
 	}
-	
+
 	@SuppressWarnings("deprecation")
-	public Action<PaymentState, PaymentEvent> preAuthAction(){
+	public Action<PaymentState, PaymentEvent> preAuthAction() {
 		return context -> {
 			System.out.println("PreAuth was called");
-			if(new Random().nextInt(10) < 8) {
-				System.out.println("Approved");
-				context.getStateMachine().sendEvent(MessageBuilder.withPayload(PaymentEvent.PRE_AUTH_APPROVED)
-				.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER)).build());
+			if (new Random().nextInt(10) < 8) {
+				System.out.println("Pre Auth Approved");
+				context.getStateMachine()
+						.sendEvent(MessageBuilder.withPayload(PaymentEvent.PRE_AUTH_APPROVED)
+								.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context
+										.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER))
+								.build());
 			} else {
-				System.out.println("Declined! No credit!!!");
-				context.getStateMachine().sendEvent(MessageBuilder.withPayload(PaymentEvent.PRE_AUTH_DECLINED)
-						.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER)).build());
+				System.out.println("Pre Auth Declined! No credit!!!");
+				context.getStateMachine()
+						.sendEvent(MessageBuilder.withPayload(PaymentEvent.PRE_AUTH_DECLINED)
+								.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context
+										.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER))
+								.build());
+
+			}
+		};
+	}
+
+	@SuppressWarnings("deprecation")
+	public Action<PaymentState, PaymentEvent> authAction() {
+		return context -> {
+			System.out.println("Auth was called!!!");
+			if (new Random().nextInt(10) < 8) {
+				System.out.println("Auth Approved");
+				context.getStateMachine()
+						.sendEvent(MessageBuilder.withPayload(PaymentEvent.AUTH_APPROVED)
+								.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context
+										.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER))
+								.build());
+			} else {
+				System.out.println("Auth Declined! No credit!!!");
+				context.getStateMachine()
+						.sendEvent(MessageBuilder.withPayload(PaymentEvent.AUTH_DECLINED)
+								.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context
+										.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER))
+								.build());
 
 			}
 		};

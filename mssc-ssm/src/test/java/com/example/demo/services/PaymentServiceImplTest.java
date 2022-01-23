@@ -20,12 +20,12 @@ class PaymentServiceImplTest {
 
 	@Autowired
 	PaymentService paymentService;
-	
+
 	@Autowired
 	PaymentRepository paymentRepository;
-	
+
 	Payment payment;
-	
+
 	@BeforeEach
 	void setUp() throws Exception {
 		payment = Payment.builder().amount(new BigDecimal("12.99")).build();
@@ -33,19 +33,39 @@ class PaymentServiceImplTest {
 
 	@Transactional
 	@Test
-	void preAuth() { 
+	void preAuth() {
 		Payment savedPayment = paymentService.newPayment(payment);
 
 		System.out.println("SHOULD BE NEW: ");
 		System.out.println(savedPayment.getState());
-		
+
 		StateMachine<PaymentState, PaymentEvent> sm = paymentService.preAuth(savedPayment.getId());
-		
+
 		Payment preAuthPayment = paymentRepository.getById(savedPayment.getId());
 		System.out.println("SHOULD BE PRE_AUTH or PRE_AUTH_ERROR: ");
 		System.out.println(sm.getState().getId());
-		
+
 		System.out.println(preAuthPayment);
+	}
+
+	@Transactional
+	@Test
+	void testAuth() {
+		Payment savedPayment = paymentService.newPayment(payment);
+
+		StateMachine<PaymentState, PaymentEvent> preAuthSM = paymentService
+				.preAuth(savedPayment.getId());
+		
+		if(preAuthSM.getState().getId() == PaymentState.PRE_AUTH) {
+			System.out.println("Payment is pre authorized");
+			
+			StateMachine<PaymentState, PaymentEvent> authSM = 
+					paymentService.authorizePayment(savedPayment.getId());
+			System.out.println("Result of Auth: " + authSM.getState().getId());
+		} else {
+			System.out.println("Payment failed pre-auth...");
+		}
+
 	}
 
 }
