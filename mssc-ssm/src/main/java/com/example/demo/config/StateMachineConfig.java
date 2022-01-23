@@ -1,8 +1,11 @@
 package com.example.demo.config;
 
 import java.util.EnumSet;
- 
+import java.util.Random;
+
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.statemachine.action.Action;
 import org.springframework.statemachine.config.EnableStateMachineFactory;
 import org.springframework.statemachine.config.StateMachineConfigurerAdapter;
 import org.springframework.statemachine.config.builders.StateMachineConfigurationConfigurer;
@@ -13,9 +16,10 @@ import org.springframework.statemachine.state.State;
 
 import com.example.demo.domain.PaymentEvent;
 import com.example.demo.domain.PaymentState;
+import com.example.demo.services.PaymentServiceImpl;
 
 import lombok.extern.slf4j.Slf4j;
-  
+
 @Slf4j
 @EnableStateMachineFactory
 @Configuration
@@ -24,8 +28,11 @@ public class StateMachineConfig extends StateMachineConfigurerAdapter<PaymentSta
 
 	public void configure(StateMachineStateConfigurer<PaymentState, PaymentEvent> states)
 			throws Exception {
-		states.withStates().initial(PaymentState.NEW).states(EnumSet.allOf(PaymentState.class))
-				.end(PaymentState.AUTH).end(PaymentState.PRE_AUTH_ERROR)
+		states.withStates()
+				.initial(PaymentState.NEW)
+				.states(EnumSet.allOf(PaymentState.class))
+				.end(PaymentState.AUTH)
+				.end(PaymentState.PRE_AUTH_ERROR)
 				.end(PaymentState.AUTH_ERROR);
 	}
 
@@ -33,7 +40,7 @@ public class StateMachineConfig extends StateMachineConfigurerAdapter<PaymentSta
 	public void configure(StateMachineTransitionConfigurer<PaymentState, PaymentEvent> transitions)
 			throws Exception {
 		transitions.withExternal().source(PaymentState.NEW).target(PaymentState.NEW)
-				.event(PaymentEvent.PRE_AUTHORIZE)
+				.event(PaymentEvent.PRE_AUTHORIZE).action(preAuthAction())
 				.and()
 				.withExternal().source(PaymentState.NEW).target(PaymentState.PRE_AUTH)
 				.event(PaymentEvent.PRE_AUTH_APPROVED)
@@ -55,9 +62,25 @@ public class StateMachineConfig extends StateMachineConfigurerAdapter<PaymentSta
 			
 		}; 
 		
-		config.withConfiguration().listener(adapter);
+		config.withConfiguration()
+			.listener(adapter);
 	}
 	
-	
+	@SuppressWarnings("deprecation")
+	public Action<PaymentState, PaymentEvent> preAuthAction(){
+		return context -> {
+			System.out.println("PreAuth was called");
+			if(new Random().nextInt(10) < 8) {
+				System.out.println("Approved");
+				context.getStateMachine().sendEvent(MessageBuilder.withPayload(PaymentEvent.PRE_AUTH_APPROVED)
+				.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER)).build());
+			} else {
+				System.out.println("Declined! No credit!!!");
+				context.getStateMachine().sendEvent(MessageBuilder.withPayload(PaymentEvent.PRE_AUTH_DECLINED)
+						.setHeader(PaymentServiceImpl.PAYMENT_ID_HEADER, context.getMessageHeader(PaymentServiceImpl.PAYMENT_ID_HEADER)).build());
+
+			}
+		};
+	}
 
 }

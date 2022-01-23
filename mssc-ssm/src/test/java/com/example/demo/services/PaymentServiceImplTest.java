@@ -1,0 +1,51 @@
+package com.example.demo.services;
+
+import java.math.BigDecimal;
+
+import javax.transaction.Transactional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.statemachine.StateMachine;
+
+import com.example.demo.domain.Payment;
+import com.example.demo.domain.PaymentEvent;
+import com.example.demo.domain.PaymentState;
+import com.example.demo.repository.PaymentRepository;
+
+@SpringBootTest
+class PaymentServiceImplTest {
+
+	@Autowired
+	PaymentService paymentService;
+	
+	@Autowired
+	PaymentRepository paymentRepository;
+	
+	Payment payment;
+	
+	@BeforeEach
+	void setUp() throws Exception {
+		payment = Payment.builder().amount(new BigDecimal("12.99")).build();
+	}
+
+	@Transactional
+	@Test
+	void preAuth() { 
+		Payment savedPayment = paymentService.newPayment(payment);
+
+		System.out.println("SHOULD BE NEW: ");
+		System.out.println(savedPayment.getState());
+		
+		StateMachine<PaymentState, PaymentEvent> sm = paymentService.preAuth(savedPayment.getId());
+		
+		Payment preAuthPayment = paymentRepository.getById(savedPayment.getId());
+		System.out.println("SHOULD BE PRE_AUTH or PRE_AUTH_ERROR: ");
+		System.out.println(sm.getState().getId());
+		
+		System.out.println(preAuthPayment);
+	}
+
+}
