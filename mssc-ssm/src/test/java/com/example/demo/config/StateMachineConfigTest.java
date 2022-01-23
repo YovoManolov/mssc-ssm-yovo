@@ -19,6 +19,7 @@ class StateMachineConfigTest {
 	@Autowired
 	StateMachineFactory<PaymentState, PaymentEvent> factory;
 
+	@SuppressWarnings("deprecation")
 	@Test
 	void test() {
 		StateMachine<PaymentState, PaymentEvent> sm = factory.getStateMachine(UUID.randomUUID());
